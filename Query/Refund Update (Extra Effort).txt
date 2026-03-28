@@ -1,0 +1,115 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Step 1: Insert a new refund record into the Refund table with Refund_ID
+BEGIN
+  INSERT INTO Refund (Refund_ID, Refund_Date, Refund_Amount, Refund_Reason)
+  VALUES ('RFD0016', TO_DATE('30/06/2024', 'DD/MM/YYYY'), 500, 'Injury during transport');
+  
+  -- Display a confirmation message
+  DBMS_OUTPUT.PUT_LINE('New refund record inserted successfully.');
+END;
+/
+
+-- Step 2: Display the Refund table in a formatted output
+DECLARE
+  CURSOR refund_cursor IS
+    SELECT Refund_ID, 
+           TO_CHAR(Refund_Date, 'DD/MM/YYYY') AS Refund_Date, 
+           Refund_Amount, 
+           Refund_Reason
+    FROM Refund;
+
+  v_refund_id    Refund.Refund_ID%TYPE;
+  v_refund_date  VARCHAR2(20);
+  v_refund_amt   Refund.Refund_Amount%TYPE;
+  v_refund_reason Refund.Refund_Reason%TYPE;
+  
+BEGIN
+  -- Table header for Refund
+  DBMS_OUTPUT.PUT_LINE('==================================================================================');
+  DBMS_OUTPUT.PUT_LINE('|                                 Refund Record                                  |');
+  DBMS_OUTPUT.PUT_LINE('==================================================================================');
+  DBMS_OUTPUT.PUT_LINE('| Refund ID  | Refund Date | Refund Amount | Refund Reason                       |');
+  DBMS_OUTPUT.PUT_LINE('==================================================================================');
+  
+  -- Loop through each record in the Refund table and format output
+  FOR refund_record IN refund_cursor LOOP
+    v_refund_id := refund_record.Refund_ID;
+    v_refund_date := refund_record.Refund_Date;
+    v_refund_amt := refund_record.Refund_Amount;
+    v_refund_reason := refund_record.Refund_Reason;
+    
+    DBMS_OUTPUT.PUT_LINE('| ' || RPAD(v_refund_id, 10) || ' | ' 
+                              || RPAD(v_refund_date, 11) || ' | ' 
+                              || RPAD(TO_CHAR(v_refund_amt, 'FM999,990.00'), 13) || ' | '
+                              || RPAD(v_refund_reason, 35) || ' |');
+  END LOOP;
+  
+  -- Closing table border for Refund
+  DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------');
+END;
+/
+
+-- Step 3: Prompt the user to enter the Adoption_Payment ID
+ACCEPT adp_payment_id_prompt PROMPT 'Enter the Adoption_Payment ID to update Payment Status to Refunded (format: APM0000): '
+
+-- Step 4: Clear screen and validate the format of the entered Adoption_Payment ID and update Adoption_Payment
+CLEAR SCREEN;
+
+DECLARE
+  v_adp_payment_id VARCHAR2(10) := '&adp_payment_id_prompt';
+  v_payment_amt    NUMBER(10, 2);
+  v_refund_id      VARCHAR2(10);
+  v_payment_status VARCHAR2(20);
+BEGIN
+  -- Validate the Adoption_Payment ID format using REGEXP_LIKE
+  IF NOT REGEXP_LIKE(v_adp_payment_id, '^APM[0-9]{4}$') THEN
+    DBMS_OUTPUT.PUT_LINE('Error: Adoption_Payment ID must be in the format APM0000 (e.g., APM1234).');
+  ELSE
+    -- Update the Adoption_Payment table
+    UPDATE Adoption_Payment
+    SET 
+        Refund_ID = (SELECT MAX(Refund_ID) FROM Refund),  -- Retrieve the most recent Refund_ID
+        Payment_Status = 'Refunded'
+    WHERE 
+        Adp_PaymentID = v_adp_payment_id;
+
+    -- Check if the update was successful
+    IF SQL%ROWCOUNT = 0 THEN
+      DBMS_OUTPUT.PUT_LINE('No adoption payment found with the given Adoption_Payment ID: ' || v_adp_payment_id);
+    ELSE
+      DBMS_OUTPUT.PUT_LINE('Adoption Payment updated successfully for ID: ' || v_adp_payment_id);
+
+      -- Retrieve the updated record details
+      SELECT Refund_ID, Payment_Amt, Payment_Status
+      INTO v_refund_id, v_payment_amt, v_payment_status
+      FROM Adoption_Payment
+      WHERE Adp_PaymentID = v_adp_payment_id;
+
+      -- Display the updated Adoption_Payment record in a consistent table format
+      DBMS_OUTPUT.PUT_LINE('---------------------------------------------');
+      DBMS_OUTPUT.PUT_LINE('|           Field          |       Value       |');
+      DBMS_OUTPUT.PUT_LINE('---------------------------------------------');
+      DBMS_OUTPUT.PUT_LINE('| Adoption Payment ID      | ' || RPAD(v_adp_payment_id, 18) || '|');
+      DBMS_OUTPUT.PUT_LINE('| Refund ID                | ' || RPAD(v_refund_id, 18) || '|');
+      DBMS_OUTPUT.PUT_LINE('| Payment Amount           | ' || RPAD(TO_CHAR(v_payment_amt, 'FM999,990.00'), 18) || '|');
+      DBMS_OUTPUT.PUT_LINE('| Payment Status           | ' || RPAD(v_payment_status, 18) || '|');
+      DBMS_OUTPUT.PUT_LINE('---------------------------------------------');
+    END IF;
+  END IF;
+END;
+/
+
+-- Reset settings
+SET FEEDBACK ON;
+SET VERIFY ON;

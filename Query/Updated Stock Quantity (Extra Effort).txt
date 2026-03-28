@@ -1,0 +1,66 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Accept user input for Item_ID
+ACCEPT v_item_id PROMPT 'Enter the Item ID to update stock quantity (e.g., ITM0001): '
+
+-- Update query to modify stock quantity
+UPDATE Item i
+SET i.Stock_Quantity = i.Stock_Quantity + COALESCE(( 
+    SELECT p.Order_Quantity
+    FROM Procurement p
+    JOIN Supplier s ON p.Supplier_ID = s.Supplier_ID
+    WHERE i.Item_ID = p.Item_ID
+      AND p.Procurement_Status = 'Completed'
+      AND p.Procurement_Date = TO_DATE('30/06/2024', 'DD/MM/YYYY')
+      AND s.Supplier_ID = 'SUP0002'
+), 0)
+WHERE i.Item_ID = '&v_item_id';  -- Using the accepted Item_ID
+
+-- Fetch and display the updated record in table format
+DECLARE
+    v_Item_ID Item.Item_ID%TYPE;
+    v_Shelter_ID Item.Shelter_ID%TYPE;
+    v_Item_Name Item.Item_Name%TYPE;
+    v_Stock_Quantity Item.Stock_Quantity%TYPE;
+BEGIN
+    -- Fetch updated data
+    SELECT Item_ID, Shelter_ID, Item_Name, Stock_Quantity
+    INTO v_Item_ID, v_Shelter_ID, v_Item_Name, v_Stock_Quantity
+    FROM Item
+    WHERE Item_ID = '&v_item_id';  -- Using the accepted Item_ID
+    
+    -- Display output with a meaningful title
+    DBMS_OUTPUT.PUT_LINE('1 row updated.');
+    DBMS_OUTPUT.PUT_LINE('  ');
+    DBMS_OUTPUT.PUT_LINE('==============================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                   UPDATED STOCK QUANTITY FOR ITEM "' || v_Item_ID || '"                |');
+    DBMS_OUTPUT.PUT_LINE('==============================================================================');
+    
+    -- Center-align STOCK_QUANTITY within its column
+    DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('| ITEM_ID    | SHELTER_ID |          ITEM_NAME           |   STOCK_QUANTITY  |');
+    DBMS_OUTPUT.PUT_LINE('|------------|------------|------------------------------|-------------------|');
+    DBMS_OUTPUT.PUT_LINE('| ' || RPAD(v_Item_ID, 10) || ' | ' || 
+                             RPAD(v_Shelter_ID, 10) || ' | ' || 
+                             RPAD(v_Item_Name, 28) || ' | ' || 
+                             LPAD(v_Stock_Quantity, 8) || RPAD(' ', 9) || ' |');  -- Center STOCK_QUANTITY
+    DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------------');
+END;
+/
+
+-- Suppress further output
+SET SERVEROUTPUT OFF;
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

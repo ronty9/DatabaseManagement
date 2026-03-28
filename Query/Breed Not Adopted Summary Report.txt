@@ -1,0 +1,65 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Prompt user for Animal Type (e.g., cat or dog)
+ACCEPT animal_type CHAR PROMPT 'Enter the Animal Type (cat or dog) to trace non-adopted breeds: '
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Output table formatting using DBMS_OUTPUT
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('============================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                      BREED NOT ADOPTED SUMMARY REPORT                    |');
+    DBMS_OUTPUT.PUT_LINE('============================================================================');
+    DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|     Breed                  | Animal Type   | Not Adopted Count           |');
+    DBMS_OUTPUT.PUT_LINE('|----------------------------|---------------|-----------------------------|');
+    
+    FOR r IN (
+        SELECT 
+            ani.Breed AS Breed, 
+            ani.Animal_Type AS Animal_Type,
+            COUNT(ani.Animal_ID) AS Not_Adopted_Count 
+        FROM 
+            Animal ani 
+        LEFT JOIN 
+            Adoption a ON ani.Animal_ID = a.Animal_ID 
+        WHERE 
+            a.Adoption_ID IS NULL 
+        AND 
+            LOWER(ani.Animal_Type) = LOWER('&animal_type')  -- Trace based on input animal type
+        GROUP BY 
+            ani.Breed, ani.Animal_Type
+        ORDER BY 
+            Not_Adopted_Count DESC
+    ) LOOP
+        -- Left-aligning Breed, center-aligning Animal Type and Not Adopted Count
+        DBMS_OUTPUT.PUT_LINE('| ' || RPAD(r.Breed, 26) || ' | ' || 
+                              CENTER_TEXT(r.Animal_Type, 13) || ' | ' || 
+                              CENTER_TEXT(r.Not_Adopted_Count, 27) || ' |');
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------');
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

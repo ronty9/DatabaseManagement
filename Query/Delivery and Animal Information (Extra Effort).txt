@@ -1,0 +1,121 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Ask for the month input directly with ACCEPT (input on the same line)
+ACCEPT report_month CHAR FORMAT 'A15' PROMPT 'Enter the month to view the report (e.g., January, Jan, 01, 1): ';
+
+-- Convert the entered month into a standardized month format and get the full month name
+DECLARE
+    v_report_month VARCHAR2(15) := '&report_month';  -- Store user input into a variable
+    v_full_month_name VARCHAR2(15);  -- Variable for storing the full month name
+    v_month VARCHAR2(2);  -- Variable for storing normalized month number
+BEGIN
+    -- Normalize user input for months between January to June
+    SELECT CASE
+        WHEN UPPER(v_report_month) IN ('JANUARY', 'JAN', '01', '1') THEN 'January'
+        WHEN UPPER(v_report_month) IN ('FEBRUARY', 'FEB', '02', '2') THEN 'February'
+        WHEN UPPER(v_report_month) IN ('MARCH', 'MAR', '03', '3') THEN 'March'
+        WHEN UPPER(v_report_month) IN ('APRIL', 'APR', '04', '4') THEN 'April'
+        WHEN UPPER(v_report_month) IN ('MAY', '05', '5') THEN 'May'
+        WHEN UPPER(v_report_month) IN ('JUNE', 'JUN', '06', '6') THEN 'June'
+        ELSE NULL
+    END INTO v_full_month_name
+    FROM dual;
+
+    -- Error if the month is invalid
+    IF v_full_month_name IS NULL THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid month entered. Please enter a month between January and June.');
+    ELSE
+        -- Output the report title with full month name (format adjusted to center properly)
+        DBMS_OUTPUT.PUT_LINE('=======================================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                     Revenue and Expenses Report - ' || RPAD(v_full_month_name, 9) || '                         |');
+        DBMS_OUTPUT.PUT_LINE('=======================================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('|       Category         |   Category Type   | Total Transactions |    Total Amount   |');
+        DBMS_OUTPUT.PUT_LINE('|----------------------- |------------------ |--------------------|-------------------|');
+        
+        -- Output the revenue and expense report filtered by the month
+        FOR r IN (
+            SELECT 'Adoption' AS Category, 
+                   'Revenue' AS Category_Type, 
+                   NVL(TO_CHAR(COUNT(a.Adoption_ID)), '0') AS Total_Transactions, 
+                   NVL(TO_CHAR(SUM(ap.Payment_Amt)), '0') AS Total_Amount 
+            FROM Adoption a 
+            JOIN Adoption_Payment ap ON a.Adoption_ID = ap.Adoption_ID
+            WHERE TO_CHAR(ap.Payment_Date, 'MM') = CASE
+                WHEN v_full_month_name = 'January' THEN '01'
+                WHEN v_full_month_name = 'February' THEN '02'
+                WHEN v_full_month_name = 'March' THEN '03'
+                WHEN v_full_month_name = 'April' THEN '04'
+                WHEN v_full_month_name = 'May' THEN '05'
+                WHEN v_full_month_name = 'June' THEN '06'
+            END
+            UNION ALL
+            SELECT 'Donation' AS Category, 
+                   'Revenue' AS Category_Type, 
+                   NVL(TO_CHAR(COUNT(d.Donation_ID)), '0') AS Total_Transactions, 
+                   NVL(TO_CHAR(SUM(d.Donation_Amount)), '0') AS Total_Amount 
+            FROM Donation d
+            WHERE TO_CHAR(d.Donation_Date, 'MM') = CASE
+                WHEN v_full_month_name = 'January' THEN '01'
+                WHEN v_full_month_name = 'February' THEN '02'
+                WHEN v_full_month_name = 'March' THEN '03'
+                WHEN v_full_month_name = 'April' THEN '04'
+                WHEN v_full_month_name = 'May' THEN '05'
+                WHEN v_full_month_name = 'June' THEN '06'
+            END
+            UNION ALL
+            SELECT 'Training' AS Category, 
+                   'Revenue' AS Category_Type, 
+                   NVL(TO_CHAR(COUNT(b.Booking_ID)), '0') AS Total_Transactions, 
+                   NVL(TO_CHAR(SUM(ts.Training_Cost)), '0') AS Total_Amount 
+            FROM Booking b 
+            JOIN TrainingService ts ON b.TrainingService_ID = ts.TrainingService_ID
+            WHERE TO_CHAR(b.Booking_Date, 'MM') = CASE
+                WHEN v_full_month_name = 'January' THEN '01'
+                WHEN v_full_month_name = 'February' THEN '02'
+                WHEN v_full_month_name = 'March' THEN '03'
+                WHEN v_full_month_name = 'April' THEN '04'
+                WHEN v_full_month_name = 'May' THEN '05'
+                WHEN v_full_month_name = 'June' THEN '06'
+            END
+            UNION ALL
+            SELECT 'Procurement' AS Category, 
+                   'Expenses' AS Category_Type, 
+                   NVL(TO_CHAR(COUNT(p.Procurement_ID)), '0') AS Total_Transactions, 
+                   NVL(TO_CHAR(SUM(p.Total_Amount)), '0') AS Total_Amount 
+            FROM Procurement p
+            WHERE TO_CHAR(p.Procurement_Date, 'MM') = CASE
+                WHEN v_full_month_name = 'January' THEN '01'
+                WHEN v_full_month_name = 'February' THEN '02'
+                WHEN v_full_month_name = 'March' THEN '03'
+                WHEN v_full_month_name = 'April' THEN '04'
+                WHEN v_full_month_name = 'May' THEN '05'
+                WHEN v_full_month_name = 'June' THEN '06'
+            END
+        ) LOOP
+            -- Aligning columns with proper width
+            DBMS_OUTPUT.PUT_LINE('|' || RPAD(r.Category, 23) || ' | ' || 
+                                  RPAD(r.Category_Type, 17) || ' | ' || 
+                                  CENTER_TEXT(r.Total_Transactions, 18) || ' | ' || 
+                                  CENTER_TEXT(r.Total_Amount, 17) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

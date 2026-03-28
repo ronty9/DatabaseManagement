@@ -1,0 +1,104 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350; 
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Display available refund reasons to the user with numbering
+DECLARE
+    v_counter NUMBER := 1;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=============================================================');
+    DBMS_OUTPUT.PUT_LINE('|                   Available Refund Reasons                |');
+    DBMS_OUTPUT.PUT_LINE('=============================================================');
+    DBMS_OUTPUT.PUT_LINE('| No | Refund Reason                                        |');
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------');
+    
+    FOR r IN (
+        SELECT DISTINCT Refund_Reason
+        FROM Refund
+        ORDER BY Refund_Reason
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('| ' || RPAD(v_counter, 3) || '| ' || RPAD(r.Refund_Reason, 52) || ' |');
+        v_counter := v_counter + 1;  -- Increment the counter for each refund reason
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------------------------');
+END;
+/
+
+-- Prompt user for Refund Reason based on the displayed table
+ACCEPT refund_reason CHAR PROMPT 'Enter the Refund Reason you wish to trace: '
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Validation block to check if the entered Refund Reason exists
+DECLARE
+    v_count NUMBER;
+BEGIN
+    -- Check if the input Refund Reason exists in the Refund table (case-insensitive)
+    SELECT COUNT(*)
+    INTO v_count
+    FROM Refund
+    WHERE UPPER(Refund_Reason) = UPPER('&refund_reason');
+    
+    IF v_count = 0 THEN
+        -- Refund Reason does not exist, output an error message
+        DBMS_OUTPUT.PUT_LINE('Error: The entered Refund Reason does not exist. Please try again with a valid reason.');
+    ELSE
+        -- Refund Reason exists, proceed with report generation
+        DBMS_OUTPUT.PUT_LINE('============================================================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                                            Refunded Adoption Payments Report                             |');
+        DBMS_OUTPUT.PUT_LINE('============================================================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Adoption ID | Payment Status    | Refund Reason                            | Refund Amount | Refund Date |');
+        DBMS_OUTPUT.PUT_LINE('--------------|-------------------|------------------------------------------|---------------|--------------');
+        
+        FOR r IN (
+            SELECT 
+                ap.Adoption_ID AS Adoption_ID,
+                ap.Payment_Status AS Payment_Status, 
+                r.Refund_Reason AS Refund_Reason,
+                r.Refund_Amount AS Refund_Amount,
+                TO_CHAR(r.Refund_Date, 'DD-MON-YYYY') AS Refund_Date
+            FROM 
+                Adoption_Payment ap
+            JOIN 
+                Refund r ON ap.Refund_ID = r.Refund_ID
+            WHERE 
+                ap.Payment_Status = 'Refunded'
+            AND 
+                UPPER(r.Refund_Reason) = UPPER('&refund_reason') -- Case-insensitive comparison
+            ORDER BY 
+                ap.Adoption_ID
+        ) LOOP
+            -- Center-aligning Adoption ID, Refund Amount, and Refund Date; left-aligning Reason and Status fields
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Adoption_ID, 12) || ' | ' || 
+                                  RPAD(r.Payment_Status, 17) || ' | ' || 
+                                  RPAD(r.Refund_Reason, 40) || ' | ' || 
+                                  CENTER_TEXT(r.Refund_Amount, 13) || ' | ' ||
+                                  CENTER_TEXT(r.Refund_Date, 11) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

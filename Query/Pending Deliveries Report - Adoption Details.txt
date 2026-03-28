@@ -1,0 +1,71 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Accept user input for delivery status only
+ACCEPT DeliveryStatus PROMPT 'Please enter Delivery Status (Pending, Delivered, or Returned): '
+
+-- Validate delivery status input and ensure valid entry
+DECLARE
+    v_DeliveryStatus VARCHAR2(20) := LOWER('&DeliveryStatus');
+BEGIN
+    IF v_DeliveryStatus NOT IN ('pending', 'delivered', 'returned') THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Delivery Status. Please enter "Pending", "Delivered", or "Returned".');
+    ELSE
+        -- Proceed with the report generation if the input is valid
+
+        -- Header for the report
+        DBMS_OUTPUT.PUT_LINE('===============================================================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                                        Deliveries Report - Adoption Details                                 |');
+        DBMS_OUTPUT.PUT_LINE('===============================================================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Adoption ID | Payment Status    | Payment Date       | Delivery Status  | Payment Amount | Delivery Charges |');
+        DBMS_OUTPUT.PUT_LINE('--------------|-------------------|--------------------|------------------|----------------|------------------|');
+
+        -- Fetching and displaying data based on the Delivery_Status entered
+        FOR r IN (
+            SELECT 
+                a.Adoption_ID AS Adoption_ID,
+                ap.Payment_Status AS Payment_Status, 
+                TO_CHAR(ap.Payment_Date, 'DD-MM-YYYY') AS Payment_Date, -- Display Payment Date
+                d.Delivery_Status AS Delivery_Status,
+                ap.Payment_Amt AS Payment_Amount,
+                d.Delivery_Charges AS Delivery_Charges  -- Added Delivery_Charges
+            FROM 
+                Adoption a
+            JOIN 
+                Adoption_Payment ap ON a.Adoption_ID = ap.Adoption_ID
+            JOIN 
+                Delivery d ON a.Adoption_ID = d.Adoption_ID
+            WHERE 
+                LOWER(d.Delivery_Status) = v_DeliveryStatus  -- Match validated user input
+            ORDER BY 
+                a.Adoption_Date DESC
+        ) LOOP
+            -- Center-aligning Adoption ID and Payment Amount, left-aligning Status fields
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Adoption_ID, 12) || ' | ' || 
+                                  RPAD(r.Payment_Status, 17) || ' | ' || 
+                                  RPAD(r.Payment_Date, 18) || ' | ' || 
+                                  RPAD(r.Delivery_Status, 16) || ' | ' || 
+                                  CENTER_TEXT(r.Payment_Amount, 14) || ' | ' || 
+                                  CENTER_TEXT(r.Delivery_Charges, 16) || ' |');
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE(' ---------------------------------------------------------------------------------------------------------------');
+
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

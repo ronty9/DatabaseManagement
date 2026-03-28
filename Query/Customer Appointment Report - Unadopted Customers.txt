@@ -1,0 +1,81 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350; 
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Prompt user for Customer Name
+ACCEPT customer_name CHAR PROMPT 'Enter the Customer Name (or partial name) to trace: '
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Validation block to check if the entered Customer Name exists
+DECLARE
+    v_count NUMBER;
+BEGIN
+    -- Check if the input Customer Name exists in the Customer table (case-insensitive)
+    SELECT COUNT(*)
+    INTO v_count
+    FROM Customer
+    WHERE LOWER(Cust_Name) LIKE '%' || LOWER('&customer_name') || '%';
+    
+    IF v_count = 0 THEN
+        -- Customer Name does not exist, output an error message
+        DBMS_OUTPUT.PUT_LINE('Error: No matching Customer Name found. Please try again with a valid name or partial name.');
+    ELSE
+        -- Customer Name exists, proceed with report generation
+        DBMS_OUTPUT.PUT_LINE('========================================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                    Customer Appointment Report - Unadopted Customers                 |');
+        DBMS_OUTPUT.PUT_LINE('========================================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('|  Cust_ID  | Customer Name                     | Appointment Date | Appointment Status|');
+        DBMS_OUTPUT.PUT_LINE('------------|-----------------------------------|------------------|--------------------');
+        
+        FOR r IN (
+            SELECT 
+                cust.Cust_ID AS Cust_ID,
+                cust.Cust_Name AS Cust_Name,
+                TO_CHAR(app.Appointment_Date, 'DD-MON-YYYY') AS Appointment_Date,
+                app.Appointment_Status AS Appointment_Status
+            FROM 
+                Customer cust
+            JOIN 
+                Appointment app ON cust.Cust_ID = app.Cust_ID
+            LEFT JOIN 
+                Adoption a ON cust.Cust_ID = a.Cust_ID
+            WHERE 
+                a.Adoption_ID IS NULL
+            AND 
+                LOWER(cust.Cust_Name) LIKE '%' || LOWER('&customer_name') || '%'  -- Case-insensitive filtering
+            ORDER BY 
+                app.Appointment_Date DESC
+        ) LOOP
+            -- Center-aligning Cust_ID and Appointment Date, left-aligning Name and Status
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Cust_ID, 10) || ' | ' || 
+                                  RPAD(r.Cust_Name, 33) || ' | ' || 
+                                  CENTER_TEXT(r.Appointment_Date, 16) || ' | ' || 
+                                  RPAD(r.Appointment_Status, 17) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

@@ -1,0 +1,87 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Prompt user for Adoption ID input
+ACCEPT adoption_id PROMPT 'Please enter the Adoption ID (Format: ADP0001 - ADP0325): '
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Procedure to validate the Adoption ID and display invoice
+DECLARE
+    v_adoption_id VARCHAR2(10) := '&adoption_id';
+    v_valid_id BOOLEAN := FALSE;
+BEGIN
+    -- Check if the input is within the valid range of ADP0001 - ADP0325
+    IF v_adoption_id LIKE 'ADP____' AND
+       TO_NUMBER(SUBSTR(v_adoption_id, 4, 4)) BETWEEN 1 AND 325 THEN
+        v_valid_id := TRUE;
+    END IF;
+
+    -- If ID is not valid, display an error message and stop without raising an exception
+    IF NOT v_valid_id THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid Adoption ID. Please enter a value between ADP0001 and ADP0325.');
+        RETURN;  -- Gracefully exit the block without raising an error
+    END IF;
+
+    -- Output table formatting using DBMS_OUTPUT if ID is valid
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                                                ADOPTION INVOICE                                                        |');
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================================================');
+    DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|  Adoption ID    |  Customer ID   |  Animal Type  |  Animal Breed   | Adoption Date | Payment Amount   | Payment Method |');
+    DBMS_OUTPUT.PUT_LINE('|-----------------|----------------|---------------|-----------------|---------------|------------------|----------------|');
+    
+    FOR r IN (
+        SELECT 
+            a.Adoption_ID AS Adoption_ID,
+            c.Cust_ID AS Customer_ID,  -- Assuming the Cust_ID is in the Customer table
+            ani.Animal_Type AS Animal_Type,
+            ani.Breed AS Animal_Breed,
+            TO_CHAR(a.Adoption_Date, 'DD/MM/YYYY') AS Adoption_Date,
+            TO_CHAR(ap.Payment_Amt, '9999990.00') AS Payment_Amount,
+            ap.Payment_Method AS Payment_Method  -- Assuming Payment_Method is a valid column
+        FROM 
+            Adoption a
+        JOIN 
+            Animal ani ON a.Animal_ID = ani.Animal_ID
+        LEFT JOIN 
+            Adoption_Payment ap ON a.Adoption_ID = ap.Adoption_ID
+        JOIN 
+            Customer c ON a.Cust_ID = c.Cust_ID  -- Adjusted join to pull Cust_ID
+        WHERE 
+            a.Adoption_ID = v_adoption_id
+    ) LOOP
+        -- Center-aligning Adoption ID, Payment Amount, Payment Method, and left-aligning other columns
+        DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Adoption_ID, 16) || ' | ' || 
+                              RPAD(r.Customer_ID, 14) || ' | ' ||
+                              RPAD(r.Animal_Type, 13) || ' | ' || 
+                              RPAD(r.Animal_Breed, 15) || ' | ' || 
+                              RPAD(r.Adoption_Date, 13) || ' | ' || 
+                              CENTER_TEXT(r.Payment_Amount, 16) || ' | ' || 
+                              RPAD(r.Payment_Method, 14) || ' |');
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------------------------------------------------');
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

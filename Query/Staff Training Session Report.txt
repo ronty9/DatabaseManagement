@@ -1,0 +1,90 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Display available Shelter_ID options
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|             Available Shelter IDs              |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|  Shelter ID  |      Location                   |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|  KUL0001     |      Kuala Lumpur               |');
+    DBMS_OUTPUT.PUT_LINE('|  PNG0001     |      Penang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  JHR0001     |      Johor                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SBH0001     |      Sabah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SRW0001     |      Sarawak                    |');
+    DBMS_OUTPUT.PUT_LINE('|  PHG0001     |      Pahang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  PRK0001     |      Perak                      |');
+    DBMS_OUTPUT.PUT_LINE('|  MLK0001     |      Melaka                     |');
+    DBMS_OUTPUT.PUT_LINE('|  KDH0001     |      Kedah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  KLT0001     |      Kelantan                   |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+END;
+/
+
+-- Accept user input for Shelter ID
+ACCEPT ShelterID PROMPT 'Please enter Shelter ID from the list above: '
+
+-- Validate Shelter ID and ensure valid entry
+DECLARE
+    v_ShelterID VARCHAR2(10) := UPPER('&ShelterID');
+BEGIN
+    -- Valid Shelter_IDs
+    IF v_ShelterID NOT IN ('KUL0001', 'PNG0001', 'JHR0001', 'SBH0001', 'SRW0001', 'PHG0001', 'PRK0001', 'MLK0001', 'KDH0001', 'KLT0001') THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Shelter ID. Please enter a valid Shelter ID from the list.');
+    ELSE
+        -- Proceed with the report generation if the input is valid
+
+        -- Header for the report
+        DBMS_OUTPUT.PUT_LINE('============================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                      STAFF TRAINING SESSION REPORT                       |');
+        DBMS_OUTPUT.PUT_LINE('============================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('|   Staff ID    |          Staff Name           | Training Session Count   |');
+        DBMS_OUTPUT.PUT_LINE('|---------------|-------------------------------|--------------------------|');
+
+        -- Fetching and displaying data based on the Shelter_ID entered
+        FOR r IN (
+            SELECT 
+                s.Staff_ID AS Staff_ID,
+                s.Staff_Name AS Staff_Name, 
+                COUNT(t.Training_ID) AS Training_Session_Count
+            FROM 
+                Training t
+            JOIN 
+                Staff s ON t.Staff_ID = s.Staff_ID
+            JOIN 
+                Shelter sh ON s.Shelter_ID = sh.Shelter_ID
+            WHERE 
+                EXTRACT(MONTH FROM t.Training_Date) = 05 
+                AND EXTRACT(YEAR FROM t.Training_Date) = 2024  
+                AND sh.Shelter_ID = v_ShelterID  -- Match the user input
+            GROUP BY 
+                s.Staff_ID, s.Staff_Name
+            ORDER BY 
+                Training_Session_Count DESC
+        ) LOOP
+            -- Center-aligning Staff ID and Training Session Count, left-aligning Staff Name
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Staff_ID, 14) || ' | ' || 
+                                  RPAD(r.Staff_Name, 29) || ' | ' || 
+                                  CENTER_TEXT(r.Training_Session_Count, 24) || ' |');
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

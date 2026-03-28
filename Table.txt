@@ -1,0 +1,229 @@
+CREATE TABLE Counselor (
+	Counselor_ID		VARCHAR (8) NOT NULL,
+	Counselor_Name		VARCHAR (35),
+	Counselor_Email		VARCHAR (40),
+	Contact_Info		VARCHAR (11),
+	PRIMARY KEY  (Counselor_ID),	
+	CONSTRAINT chk_counselor_email CHECK (REGEXP_LIKE ( Counselor_Email,
+	'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'))	
+);
+
+CREATE TABLE Customer (
+	Cust_ID				VARCHAR (8) NOT NULL, 	
+	Cust_Name			VARCHAR (35),
+	Cust_NRIC			VARCHAR (12),
+	Cust_Address		VARCHAR (35),
+	Cust_Email			VARCHAR (30),
+	Cust_Phone			VARCHAR (11),
+	Exp_Handling		VARCHAR (15),
+	Cust_Income			VARCHAR (16),
+	PRIMARY KEY  (Cust_ID),
+	CONSTRAINT chk_cust_email CHECK (REGEXP_LIKE ( Cust_Email,
+	'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'))	
+);
+
+CREATE TABLE Promotion (
+	Promotion_ID		VARCHAR (8) NOT NULL,
+	Promo_Description	VARCHAR (21),
+	Start_Date			DATE,
+	End_Date			DATE,
+	PRIMARY KEY (Promotion_ID) 
+);
+
+CREATE TABLE Treatment (
+	Treatment_ID		VARCHAR (8) NOT NULL,
+	Animal_ID			VARCHAR (8) NOT NULL,
+	Treatment_Type		VARCHAR (20),
+	Vet_Center			VARCHAR (15),
+	Treatment_Cost		NUMBER  (6, 2),
+	Treatment_Status	VARCHAR (10),
+	Treatment_Date		Date,
+	PRIMARY KEY (Treatment_ID),
+	FOREIGN KEY (Animal_ID) REFERENCES Animal(Animal_ID)
+);
+
+CREATE TABLE Refund (
+	Refund_ID	    	VARCHAR(8) NOT NULL,
+	Refund_Date	    	DATE,
+	Refund_Amount	   	NUMBER (5, 2),
+	Refund_Reason	    VARCHAR(35),
+	PRIMARY KEY (Refund_ID)
+);
+
+CREATE TABLE TrainingService (
+	TrainingService_ID	VARCHAR (8) NOT NULL,
+	Training_Cost		NUMBER (5, 2),
+	Training_Type		VARCHAR (25),
+	Training_Duration	VARCHAR (10), 
+	PRIMARY KEY (TrainingService_ID) 
+);
+
+CREATE TABLE Appointment (
+	Appointment_ID			VARCHAR (8) NOT NULL,
+	Counselor_ID			VARCHAR (8) NOT NULL,
+	Cust_ID					VARCHAR (8) NOT NULL,
+	Appointment_Status		VARCHAR (10),
+	Appointment_Type		VARCHAR (30),
+	Appointment_Date 		DATE,
+	Appointment_Time 		VARCHAR(10),
+	PRIMARY KEY   (Appointment_ID), 
+	FOREIGN KEY   (Counselor_ID) REFERENCES Counselor(Counselor_ID),
+	FOREIGN KEY   (Cust_ID) REFERENCES Customer(Cust_ID)
+);
+
+CREATE TABLE Donation (
+	Donation_ID	    	VARCHAR(8) NOT NULL,
+	Cust_ID		   		VARCHAR(8) NOT NULL,
+	Payment_Method	   	VARCHAR(20),
+	Donation_Amount	    NUMBER (8,2),
+	Donation_Date	    DATE,
+	PRIMARY KEY (Donation_ID),
+	FOREIGN KEY (Cust_ID) REFERENCES Customer(Cust_ID)
+);
+
+CREATE TABLE Shelter (
+	Shelter_ID			VARCHAR (8) NOT NULL,
+	Shelter_Name		VARCHAR (10) NOT NULL,
+	Shelter_Capacity	NUMBER  (4),
+	Shelter_Address		VARCHAR (30),
+	State				VARCHAR (10),	
+	Manager_Name		VARCHAR (35),
+	Email				VARCHAR (20),
+	Phone_Number		VARCHAR  (11),
+	PRIMARY KEY (Shelter_ID),
+	CONSTRAINT chk_email CHECK (REGEXP_LIKE ( Email,
+	'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'))	
+);
+
+CREATE TABLE Animal (
+	Animal_ID			VARCHAR (8) NOT NULL,
+	Shelter_ID			VARCHAR (8) NOT NULL,
+	Animal_Name			VARCHAR (20) NOT NULL,
+	Animal_Type			VARCHAR (5) NOT NULL,	
+	Breed				VARCHAR (20),
+	Year_Born			DATE,
+	Gender				CHAR (1),
+	Status				VARCHAR (15),
+	Pet_Source			VARCHAR (10),
+	PRIMARY KEY (Animal_ID),
+	FOREIGN KEY (Shelter_ID) REFERENCES Shelter (Shelter_ID),
+	Constraint chk_gender check (UPPER(Gender) in ('M','F'))
+);
+
+CREATE TABLE Adoption (
+	Adoption_ID			VARCHAR (8) NOT NULL,
+	Animal_ID			VARCHAR (8) NOT NULL,
+	Cust_ID				VARCHAR (8) NOT NULL,
+	Promotion_ID		VARCHAR (8),
+	Adoption_Date		DATE,
+	Adoption_Status		VARCHAR (10) NOT NULL,
+	PRIMARY KEY (Adoption_ID),
+	FOREIGN KEY (Animal_ID) REFERENCES Animal (Animal_ID),
+	FOREIGN KEY (Cust_ID) REFERENCES Customer (Cust_ID),
+	FOREIGN KEY (Promotion_ID) REFERENCES Promotion (Promotion_ID) 
+);	
+
+CREATE TABLE Delivery (
+	Delivery_ID			VARCHAR (8) NOT NULL,
+	Adoption_ID			VARCHAR (8) NOT NULL,	
+	Delivery_Charges	NUMBER (5,2),
+	Delivery_Status		VARCHAR (10),
+	Courier_Company		VARCHAR (20),
+	PRIMARY KEY (Delivery_ID),
+	FOREIGN KEY (Adoption_ID) REFERENCES Adoption (Adoption_ID)
+);
+
+CREATE TABLE Staff (
+	Staff_ID			VARCHAR (8) NOT NULL,
+	Shelter_ID			VARCHAR (8) NOT NULL,
+	Staff_Name			VARCHAR (30),
+	Staff_Position		VARCHAR (15),
+	Staff_Contact		VARCHAR (11),
+	Staff_Salary		NUMBER (6, 2),
+	PRIMARY KEY (Staff_ID) ,
+	FOREIGN KEY (Shelter_ID) REFERENCES Shelter (Shelter_ID)
+);
+
+CREATE TABLE Training (
+	Training_ID			VARCHAR (8) NOT NULL,
+	Staff_ID			VARCHAR (8) NOT NULL,
+	TrainingService_ID	VARCHAR (8) NOT NULL,
+	Training_Date		DATE,
+	Training_Time		VARCHAR (10),
+	Training_Status		VARCHAR (10),
+	PRIMARY KEY (Training_ID),
+	FOREIGN KEY (Staff_ID) REFERENCES Staff (Staff_ID),
+	FOREIGN KEY (TrainingService_ID) REFERENCES TrainingService (TrainingService_ID)
+);
+
+CREATE TABLE Booking (
+	Booking_ID			VARCHAR (8) NOT NULL,
+	Cust_ID				VARCHAR (8) NOT NULL,
+	TrainingService_ID	VARCHAR (8) NOT NULL,
+	Booking_Date		DATE,
+	Booking_Time		VARCHAR (10),
+	Booking_Status		VARCHAR (10),
+	Booking_Location	VARCHAR (10),
+	NoOfPets			Number(1),
+	PRIMARY KEY (Booking_ID),
+	FOREIGN KEY (Cust_ID) REFERENCES Customer (Cust_ID),
+	FOREIGN KEY (TrainingService_ID) REFERENCES TrainingService (TrainingService_ID)
+);
+
+CREATE TABLE Item (
+	Item_ID				VARCHAR (8) NOT NULL,
+	Shelter_ID			VARCHAR (8) NOT NULL,
+	Item_Name			VARCHAR (25),
+	Stock_Quantity		NUMBER  (5),
+	PRIMARY KEY (Item_ID),
+	FOREIGN KEY (Shelter_ID) REFERENCES Shelter(Shelter_ID)
+);
+
+CREATE TABLE Supplier (
+	Supplier_ID			VARCHAR (8) NOT NULL,
+	Supplier_Name		VARCHAR (25),
+	Supplier_Type		VARCHAR (15),
+	Contact_Info		VARCHAR (11),
+	PRIMARY KEY (Supplier_ID)
+);	
+
+CREATE TABLE Procurement (
+	Procurement_ID		VARCHAR (8) NOT NULL,
+	Item_ID				VARCHAR (8) NOT NULL,
+	Supplier_ID			VARCHAR (8) NOT NULL,
+	Procurement_Status	VARCHAR (10),	
+	Procurement_Date	DATE,
+	Unit_Price			NUMBER(5, 2),
+	Order_Quantity		NUMBER(5),
+	Total_Amount		NUMBER(8, 2),
+	PRIMARY KEY (Procurement_ID),
+	FOREIGN KEY (Item_ID) REFERENCES Item(Item_ID),
+	FOREIGN KEY (Supplier_ID) REFERENCES Supplier(Supplier_ID)
+);
+
+CREATE TABLE FEEDBACK (
+	Feedback_ID			VARCHAR (8) NOT NULL,
+	Staff_ID			VARCHAR (8) NOT NULL,
+	Comments			VARCHAR (20),
+	Ratings				NUMBER  (3,1),
+	ServiceType			VARCHAR (20),
+	PRIMARY KEY (Feedback_ID),
+	FOREIGN KEY (Staff_ID) REFERENCES Staff(Staff_ID)
+);
+
+CREATE TABLE Adoption_Payment (
+	Adp_PaymentID		VARCHAR (8) NOT NULL,
+	Refund_ID			VARCHAR (8),
+	Adoption_ID			VARCHAR (8), 
+	Payment_Amt			NUMBER  (5, 2),
+	Payment_Date		DATE,
+	Payment_Method		VARCHAR (20),
+	Payment_Status		VARCHAR (10),
+	PRIMARY KEY (Adp_PaymentID),
+	FOREIGN KEY (Refund_ID) REFERENCES Refund(Refund_ID)
+);
+
+
+	
+	
+ 

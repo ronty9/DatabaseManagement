@@ -1,0 +1,86 @@
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Set the date format for the session
+ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY';
+
+-- Define column formats for output
+COLUMN Cust_ID FORMAT A10 HEADING 'Customer ID';
+COLUMN Booking_Date FORMAT A12 HEADING 'Booking Date';
+COLUMN Training_Type FORMAT A20 HEADING 'Training Service';
+COLUMN Total_Training_Services FORMAT A10 HEADING 'Total Services';
+
+-- Accept user inputs with clear instructions
+ACCEPT Cust_ID PROMPT 'Enter the Customer ID (format: CUS0000): ';
+ACCEPT Start_Date PROMPT 'Enter the Start Date (DD/MM/YYYY): ';
+ACCEPT End_Date PROMPT 'Enter the End Date (DD/MM/YYYY): ';
+
+-- Enable server output to display results
+SET SERVEROUTPUT ON;
+
+DECLARE
+    v_invalid_id EXCEPTION;  -- Exception for invalid Customer ID format
+    v_invalid_date EXCEPTION;  -- Exception for invalid date range
+BEGIN
+    -- Validate Customer ID format
+    IF NOT REGEXP_LIKE('&Cust_ID', '^CUS[0-9]{4}$') THEN
+        RAISE v_invalid_id;
+    END IF;
+
+    -- Validate date range
+    IF TO_DATE('&Start_Date', 'DD/MM/YYYY') > TO_DATE('&End_Date', 'DD/MM/YYYY') THEN
+        RAISE v_invalid_date;
+    END IF;
+
+    -- Print header for the output
+    DBMS_OUTPUT.PUT_LINE('==========================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                    Customer Training Services Report                   |');
+    DBMS_OUTPUT.PUT_LINE('==========================================================================');
+    DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('| Customer ID | Booking Date | Training Service     |   Total Services   |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------');
+
+    -- Query to fetch training services
+    FOR r IN (
+        SELECT b.Cust_ID, 
+               TO_CHAR(b.Booking_Date, 'DD/MM/YYYY') AS Booking_Date, 
+               ts.Training_Type AS Training_Service,
+               COUNT(b.Booking_ID) AS Total_Training_Services
+        FROM Booking b
+        JOIN Customer c ON b.Cust_ID = c.Cust_ID
+        JOIN TrainingService ts ON b.TrainingService_ID = ts.TrainingService_ID
+        WHERE b.Cust_ID = '&Cust_ID'
+          AND b.Booking_Date BETWEEN TO_DATE('&Start_Date', 'DD/MM/YYYY') 
+                                 AND TO_DATE('&End_Date', 'DD/MM/YYYY')
+          AND EXTRACT(MONTH FROM b.Booking_Date) BETWEEN 1 AND 6  -- Filter bookings from January to June
+        GROUP BY b.Cust_ID, b.Booking_Date, ts.Training_Type
+        ORDER BY b.Booking_Date
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('|' || RPAD(r.Cust_ID, 12) || ' | ' || 
+                             RPAD(r.Booking_Date, 12) || ' | ' || 
+                             RPAD(r.Training_Service, 20) || ' | ' || 
+                             CENTER_TEXT(r.Total_Training_Services, 18) || ' |');
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------');
+
+EXCEPTION
+    WHEN v_invalid_id THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid Customer ID format. Please use the format CUS0000.');
+    WHEN v_invalid_date THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Start date cannot be after the end date.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An unexpected error occurred: ' || SQLERRM);
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

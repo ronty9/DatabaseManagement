@@ -1,0 +1,119 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Display available promotions
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('==============================================================');
+    DBMS_OUTPUT.PUT_LINE('|              AVAILABLE PROMOTIONS                          |');
+    DBMS_OUTPUT.PUT_LINE('==============================================================');
+    DBMS_OUTPUT.PUT_LINE('| 1. New Year Day                                            |');
+    DBMS_OUTPUT.PUT_LINE('| 2. Grand Opening                                           |');
+    DBMS_OUTPUT.PUT_LINE('| 3. Thaipusam                                               |');
+    DBMS_OUTPUT.PUT_LINE('| 4. Chinese New Year                                        |');
+    DBMS_OUTPUT.PUT_LINE('| 5. Hari Raya Aidilfitri                                    |');
+    DBMS_OUTPUT.PUT_LINE('| 6. Labour Day                                              |');
+    DBMS_OUTPUT.PUT_LINE('| 7. Wesak Day                                               |');
+    DBMS_OUTPUT.PUT_LINE('| 8. Agong Birthday                                          |');
+    DBMS_OUTPUT.PUT_LINE('| 9. Mid Year Sales                                          |');
+    DBMS_OUTPUT.PUT_LINE('| 10. Hari Raya Haji                                         |');
+    DBMS_OUTPUT.PUT_LINE('==============================================================');
+    DBMS_OUTPUT.PUT_LINE(' '); -- Blank line for better readability
+END;
+/
+
+-- Accept input from the user for the promotion(s)
+ACCEPT v_promos PROMPT 'Please enter one or more promotion names (separated by commas) from the list above: ';
+
+-- PL/SQL block for validation and displaying the summary report
+DECLARE
+    v_promos_input VARCHAR2(500);
+    v_clean_promo VARCHAR2(50);
+    v_valid_promo BOOLEAN := FALSE;
+    v_invalid_promos VARCHAR2(500) := '';
+    v_promo_list SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST(); -- Array to store valid promotions
+BEGIN
+    -- Get the input and clean the commas and spaces
+    v_promos_input := LOWER(REPLACE('&v_promos', ' ', '')); -- Removes spaces for easier processing
+
+    -- Split the input into individual promotion names (based on commas)
+    FOR promo IN (SELECT REGEXP_SUBSTR(v_promos_input, '[^,]+', 1, LEVEL) AS promo_name
+                  FROM dual
+                  CONNECT BY REGEXP_SUBSTR(v_promos_input, '[^,]+', 1, LEVEL) IS NOT NULL) LOOP
+        
+        v_clean_promo := promo.promo_name;
+
+        -- Validate the individual promotion
+        IF v_clean_promo IN ('newyearday', 'grandopening', 'thaipusam', 
+                             'chinesenewyear', 'harirayaaidilfitri', 
+                             'labourday', 'wesakday', 'agongbirthday', 
+                             'midyearsales', 'harirayahaji') THEN
+            v_promo_list.EXTEND;
+            v_promo_list(v_promo_list.COUNT) := v_clean_promo;
+        ELSE
+            v_invalid_promos := v_invalid_promos || v_clean_promo || ', ';
+        END IF;
+    END LOOP;
+
+    -- If there are valid promotions, display the report
+    IF v_promo_list.COUNT > 0 THEN
+        -- Print the header only once
+        DBMS_OUTPUT.PUT_LINE('==============================================================');
+        DBMS_OUTPUT.PUT_LINE('|           PROMOTION ADOPTION SUMMARY REPORT                |');
+        DBMS_OUTPUT.PUT_LINE('==============================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Promo_Description                       | Total_Adoptions  |');
+        DBMS_OUTPUT.PUT_LINE('|-----------------------------------------|------------------|');
+
+        FOR r IN (
+            SELECT 
+                p.Promo_Description, 
+                COUNT(a.Adoption_ID) AS Total_Adoptions
+            FROM 
+                Promotion p
+            INNER JOIN 
+                Adoption a ON p.Promotion_ID = a.Promotion_ID
+            WHERE
+                LOWER(REPLACE(p.Promo_Description, ' ', '')) IN (SELECT COLUMN_VALUE FROM TABLE(v_promo_list)) -- Using valid promotion list
+            GROUP BY 
+                p.Promo_Description
+            ORDER BY 
+                Total_Adoptions DESC
+        ) LOOP
+            -- Left-align Promo_Description, center-align Total_Adoptions
+            DBMS_OUTPUT.PUT_LINE('| ' || RPAD(r.Promo_Description, 39) || ' | ' || 
+                                  CENTER_TEXT(r.Total_Adoptions, 16) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------');
+    END IF;
+
+    -- If there are any invalid promotions, display an error message
+    IF v_invalid_promos IS NOT NULL THEN
+        DBMS_OUTPUT.PUT_LINE('Error: The following promotions are invalid: ' || RTRIM(v_invalid_promos, ', '));
+    END IF;
+    
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

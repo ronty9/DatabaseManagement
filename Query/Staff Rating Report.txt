@@ -1,0 +1,99 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Step 1: Display available Shelter IDs and prompt for user input
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|             Available Shelter IDs              |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|  Shelter ID  |      Location                   |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|  KUL0001     |      Kuala Lumpur               |');
+    DBMS_OUTPUT.PUT_LINE('|  PNG0001     |      Penang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  JHR0001     |      Johor                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SBH0001     |      Sabah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SRW0001     |      Sarawak                    |');
+    DBMS_OUTPUT.PUT_LINE('|  PHG0001     |      Pahang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  PRK0001     |      Perak                      |');
+    DBMS_OUTPUT.PUT_LINE('|  MLK0001     |      Melaka                     |');
+    DBMS_OUTPUT.PUT_LINE('|  KDH0001     |      Kedah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  KLT0001     |      Kelantan                   |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+END;
+/
+
+-- Input: Accept Shelter ID from user (upper or lower case allowed)
+ACCEPT shelter_id PROMPT 'Please select the Shelter ID to view staff ratings: '
+
+-- Step 2: Validate the Shelter ID and display staff rating report if valid
+DECLARE
+    v_shelter_count NUMBER;
+BEGIN
+    -- Convert user input to uppercase for validation
+    SELECT COUNT(*) INTO v_shelter_count
+    FROM Shelter
+    WHERE UPPER(Shelter_ID) = UPPER('&shelter_id');
+    
+    IF v_shelter_count = 0 THEN
+        -- Shelter ID not found, print error message
+        DBMS_OUTPUT.PUT_LINE('Error: The entered Shelter ID does not exist. Please check the ID and try again.');
+    ELSE
+        -- Shelter ID is valid, display the staff rating report
+        DBMS_OUTPUT.PUT_LINE('====================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                     STAFF RATING REPORT                          |');
+        DBMS_OUTPUT.PUT_LINE('====================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('|   Staff ID    |          Staff Name           | Average Rating   |');
+        DBMS_OUTPUT.PUT_LINE('|---------------|-------------------------------|------------------|');
+        
+        FOR r IN (
+            SELECT 
+                s.Staff_ID AS Staff_ID,
+                s.Staff_Name AS Staff_Name,
+                TO_CHAR(ROUND(AVG(f.Ratings), 1), 'FM9999990.0') AS Average_Rating
+            FROM 
+                Staff s
+            JOIN 
+                Shelter sh ON s.Shelter_ID = sh.Shelter_ID
+            JOIN 
+                Feedback f ON s.Staff_ID = f.Staff_ID
+            WHERE 
+                UPPER(sh.Shelter_ID) = UPPER('&shelter_id')  -- User input (case-insensitive comparison)
+            GROUP BY 
+                s.Staff_ID, s.Staff_Name
+            ORDER BY 
+                Average_Rating DESC
+        ) LOOP
+            -- Center-aligning Staff ID and Average Rating, left-aligning Staff Name
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Staff_ID, 14) || ' | ' || 
+                                  RPAD(r.Staff_Name, 29) || ' | ' || 
+                                  CENTER_TEXT(r.Average_Rating, 16) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

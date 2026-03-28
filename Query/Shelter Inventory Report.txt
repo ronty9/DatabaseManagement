@@ -1,0 +1,96 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Display available Shelter_ID options
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|             Available Shelter IDs              |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+    DBMS_OUTPUT.PUT_LINE('|  Shelter ID  |      Location                   |');
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|  KUL0001     |      Kuala Lumpur               |');
+    DBMS_OUTPUT.PUT_LINE('|  PNG0001     |      Penang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  JHR0001     |      Johor                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SBH0001     |      Sabah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  SRW0001     |      Sarawak                    |');
+    DBMS_OUTPUT.PUT_LINE('|  PHG0001     |      Pahang                     |');
+    DBMS_OUTPUT.PUT_LINE('|  PRK0001     |      Perak                      |');
+    DBMS_OUTPUT.PUT_LINE('|  MLK0001     |      Melaka                     |');
+    DBMS_OUTPUT.PUT_LINE('|  KDH0001     |      Kedah                      |');
+    DBMS_OUTPUT.PUT_LINE('|  KLT0001     |      Kelantan                   |');
+    DBMS_OUTPUT.PUT_LINE('==================================================');
+END;
+/
+
+-- Prompt user for the Shelter ID
+ACCEPT shelter_id CHAR PROMPT 'Enter the Shelter ID (e.g., KUL0001): '
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Validation to check if the Shelter_ID exists
+DECLARE
+    v_count NUMBER;
+BEGIN
+    -- Check if the input Shelter_ID exists in the Shelter table
+    SELECT COUNT(*)
+    INTO v_count
+    FROM Shelter
+    WHERE Shelter_ID = UPPER('&shelter_id');
+    
+    IF v_count = 0 THEN
+        -- Shelter ID does not exist, output an error message
+        DBMS_OUTPUT.PUT_LINE('Error: The entered Shelter ID does not exist. Please try again with a valid ID.');
+    ELSE
+        -- Shelter ID exists, proceed with report generation
+        DBMS_OUTPUT.PUT_LINE('==============================================================');
+        DBMS_OUTPUT.PUT_LINE('|            Shelter Inventory Report - ' || UPPER('&shelter_id') || '              |');
+        DBMS_OUTPUT.PUT_LINE('==============================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Item Name              | Stock Quantity  | Shelter ID      |');
+        DBMS_OUTPUT.PUT_LINE('|----------------------- | --------------- | ----------------|');
+        
+        FOR r IN (
+            SELECT 
+                i.Item_Name AS Item_Name,
+                i.Stock_Quantity AS Stock_Quantity,
+                i.Shelter_ID AS Shelter_ID
+            FROM 
+                Item i
+            JOIN 
+                Shelter sh ON i.Shelter_ID = sh.Shelter_ID
+            WHERE 
+                sh.Shelter_ID = UPPER('&shelter_id')
+            ORDER BY 
+                i.Item_Name
+        ) LOOP
+            -- Aligning columns with proper width
+            DBMS_OUTPUT.PUT_LINE('|' || RPAD(r.Item_Name, 23) || ' | ' || 
+                                  CENTER_TEXT(r.Stock_Quantity, 15) || ' | ' || 
+                                  CENTER_TEXT(r.Shelter_ID, 15) || ' |');
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

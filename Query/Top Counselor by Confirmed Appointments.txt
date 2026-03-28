@@ -1,0 +1,93 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Display available appointment types
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('==================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                        APPOINTMENT TYPES                       |');
+    DBMS_OUTPUT.PUT_LINE('==================================================================');
+    DBMS_OUTPUT.PUT_LINE('| 1. Adoption Consultation                                       |');
+    DBMS_OUTPUT.PUT_LINE('| 2. Post-adoption Support                                       |');
+    DBMS_OUTPUT.PUT_LINE('| 3. Behavioural Consultation                                    |');
+    DBMS_OUTPUT.PUT_LINE('| 4. Special Need Pet Consulting                                 |');
+    DBMS_OUTPUT.PUT_LINE('==================================================================');
+    DBMS_OUTPUT.PUT_LINE(' '); -- Blank line for better readability
+END;
+/
+
+-- Accept input from the user for the appointment type
+ACCEPT v_appt_type PROMPT 'Please select one of the appointment type from the list above: ';
+
+-- PL/SQL block for validation and displaying the top 5 counselors
+DECLARE
+    v_appt_input VARCHAR2(50);
+    v_valid_type BOOLEAN := FALSE;
+BEGIN
+    -- Get the user input
+    v_appt_input := LOWER('&v_appt_type');
+
+    -- Validate the user input
+    IF v_appt_input IN ('adoption consultation', 'post-adoption support', 'behavioural consultation', 'special need pet consulting') THEN
+        v_valid_type := TRUE;
+    ELSE
+        v_valid_type := FALSE;
+    END IF;
+
+    -- If the appointment type is valid, display the top 5 counselors
+    IF v_valid_type THEN
+        DBMS_OUTPUT.PUT_LINE('==================================================================');
+        DBMS_OUTPUT.PUT_LINE('|               Top Counselors by Confirmed Appointments         |');
+        DBMS_OUTPUT.PUT_LINE('==================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Counselor ID   | Counselor Name       | Confirmed Appointments |');
+        DBMS_OUTPUT.PUT_LINE('-----------------|----------------------|-------------------------');
+
+        FOR r IN (
+            SELECT Counselor_ID, Counselor_Name, Total_Confirmed_Appointments
+            FROM (
+                SELECT c.Counselor_ID, c.Counselor_Name, COUNT(a.Appointment_ID) AS Total_Confirmed_Appointments
+                FROM Appointment a
+                JOIN Counselor c ON a.Counselor_ID = c.Counselor_ID
+                WHERE a.Appointment_Status = 'Confirmed'
+                AND LOWER(a.Appointment_Type) = v_appt_input  -- Using the input for filtering
+                GROUP BY c.Counselor_ID, c.Counselor_Name
+                ORDER BY Total_Confirmed_Appointments DESC
+            )
+            WHERE ROWNUM <= 5  -- Display the top 5 counselors
+        ) LOOP
+            -- Center-aligning Counselor ID and Confirmed Appointments, left-aligning Counselor Name
+            DBMS_OUTPUT.PUT_LINE('|' || CENTER_TEXT(r.Counselor_ID, 15) || ' | ' || 
+                                  RPAD(r.Counselor_Name, 20) || ' | ' || 
+                                  CENTER_TEXT(r.Total_Confirmed_Appointments, 22) || ' |');
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------');
+    ELSE
+        -- If invalid input, display an error message
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid appointment type. Please select a valid appointment type from the list.');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

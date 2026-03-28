@@ -1,0 +1,88 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Accept input from the user
+ACCEPT v_staff_id PROMPT 'Enter the Staff ID to trace failed training records: ';
+
+-- PL/SQL block to display staff details and failed training records
+DECLARE
+    v_staff_name VARCHAR2(100); -- Variable to hold the staff name
+BEGIN
+    -- Retrieve the staff name for the dynamic title
+    SELECT s.Staff_Name INTO v_staff_name
+    FROM Staff s
+    WHERE s.Staff_ID = '&v_staff_id';
+
+    -- Display Table Title
+    DBMS_OUTPUT.PUT_LINE('===========================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                             STAFF INFORMATION                           |');
+    DBMS_OUTPUT.PUT_LINE('===========================================================================');
+    
+    -- Display Staff Information (ID, Name, and Shelter ID)
+    FOR staff_record IN (
+        SELECT 
+            s.Staff_ID, 
+            s.Staff_Name, 
+            s.Shelter_ID
+        FROM 
+            Staff s
+        WHERE 
+            s.Staff_ID = '&v_staff_id'
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('===========================================================================');
+        DBMS_OUTPUT.PUT_LINE('| Staff ID    : ' || staff_record.Staff_ID || RPAD(' ', 58 - LENGTH(staff_record.Staff_ID)) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Staff Name  : ' || staff_record.Staff_Name || RPAD(' ', 58 - LENGTH(staff_record.Staff_Name)) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Shelter ID  : ' || staff_record.Shelter_ID || RPAD(' ', 58 - LENGTH(staff_record.Shelter_ID)) || '|');
+        DBMS_OUTPUT.PUT_LINE('===========================================================================');
+    END LOOP;
+
+    -- Display Failed Training Records
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                                         FAILED TRAINING RECORDS                                        |');
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('| Training ID  | Training Service ID  | Training Date  | Training Type          | Training Status        |');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------------');
+    
+    FOR r IN (
+        SELECT 
+            t.Training_ID, 
+            t.TrainingService_ID, 
+            TO_CHAR(t.Training_Date, 'DD/MM/YYYY') AS Training_Date,
+            ts.Training_Type,   -- Assuming Training_Type is from a related table or in the Training table
+            t.Training_Status
+        FROM 
+            Training t
+        JOIN 
+            TrainingService ts ON t.TrainingService_ID = ts.TrainingService_ID  -- Assuming Training_Type comes from this table
+        WHERE 
+            t.Staff_ID = '&v_staff_id'  -- User input for Staff_ID
+            AND t.Training_Status = 'Failed'  -- Only show failed trainings
+        ORDER BY 
+            t.Training_Date DESC
+    ) LOOP
+        -- Display the training records with appropriate formatting, including Training_Type
+        DBMS_OUTPUT.PUT_LINE('| ' || RPAD(r.Training_ID, 12) || ' | ' || 
+                              RPAD(r.TrainingService_ID, 20) || ' | ' || 
+                              RPAD(r.Training_Date, 14) || ' | ' || 
+                              RPAD(r.Training_Type, 22) || ' | ' || 
+                              RPAD(r.Training_Status, 22) || ' |');
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------------');
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

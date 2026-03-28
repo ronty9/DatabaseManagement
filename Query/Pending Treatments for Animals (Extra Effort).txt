@@ -1,0 +1,125 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET PAGESIZE 50000;
+SET LINESIZE 120;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Display Pending Treatments
+BEGIN
+    -- Displaying a clear title for the report
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================');
+    DBMS_OUTPUT.PUT_LINE('|                               Pending Treatments for Animals                           |');
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================');
+
+    -- Display headers
+    DBMS_OUTPUT.PUT_LINE('| Treatment ID | Animal Name  | Animal ID | Treatment Type    | Treatment Date | Status  |');
+    DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------------------------');
+    
+    -- Loop through treatments that are pending and display them
+    FOR r IN (
+        SELECT t.Treatment_ID, 
+               a.Animal_Name, 
+               t.Animal_ID, 
+               t.Treatment_Type, 
+               TO_CHAR(t.Treatment_Date, 'DD-MON-YYYY') AS Treatment_Date,  
+               t.Treatment_Status
+        FROM Treatment t
+        JOIN Animal a ON t.Animal_ID = a.Animal_ID
+        WHERE t.Treatment_Status = 'Pending'
+        ORDER BY t.Treatment_Date
+    ) LOOP
+        -- Display the output with spacing and formatting
+        DBMS_OUTPUT.PUT_LINE('|' || RPAD(r.Treatment_ID, 13) || ' | ' || 
+                             RPAD(r.Animal_Name, 12) || ' | ' || 
+                             RPAD(r.Animal_ID, 9) || ' | ' || 
+                             RPAD(r.Treatment_Type, 17) || ' | ' || 
+                             RPAD(r.Treatment_Date, 14) || ' | ' || 
+                             RPAD(r.Treatment_Status, 7) || ' |');
+    END LOOP;
+    
+    -- Separator after treatments list
+    DBMS_OUTPUT.PUT_LINE('==========================================================================================');
+
+END;
+/
+
+-- Step 2: Prompt the user to enter a Treatment_ID
+ACCEPT treatment_id_prompt PROMPT 'Enter the Treatment ID to update from Pending to Complete (format: TMT0000): '
+
+-- Step 3: Validate the Treatment_ID exists with status 'Pending'
+DECLARE
+  v_treatment_id VARCHAR2(10) := '&treatment_id_prompt';
+  v_count NUMBER := 0;
+BEGIN
+  -- Validate the Treatment_ID format using REGEXP_LIKE and check if the ID exists in the Pending status
+  IF NOT REGEXP_LIKE(v_treatment_id, '^TMT[0-9]{4}$') THEN
+    DBMS_OUTPUT.PUT_LINE('Error: Treatment ID must be in the format TMT0000 (e.g., TMT1234).');
+  ELSE
+    -- Step 4: Check if the entered Treatment_ID exists with status 'Pending'
+    SELECT COUNT(*)
+    INTO v_count
+    FROM Treatment
+    WHERE Treatment_ID = v_treatment_id
+      AND Treatment_Status = 'Pending';
+
+    IF v_count = 0 THEN
+      DBMS_OUTPUT.PUT_LINE('Error: No pending treatment found with the given Treatment ID: ' || v_treatment_id);
+    ELSE
+      -- Step 5: Update the selected Treatment_ID's status to Complete
+      UPDATE Treatment
+      SET Treatment_Status = 'Completed'
+      WHERE Treatment_ID = v_treatment_id
+        AND Treatment_Status = 'Pending';
+
+      -- Step 6: Fetch the updated record details after the update
+      DECLARE
+        v_animal_name   Animal.Animal_Name%TYPE;
+        v_animal_id     Treatment.Animal_ID%TYPE;
+        v_treatment_type Treatment.Treatment_Type%TYPE;
+        v_treatment_status Treatment.Treatment_Status%TYPE;
+        v_treatment_date Treatment.Treatment_Date%TYPE;
+      BEGIN
+        SELECT a.Animal_Name, t.Animal_ID, t.Treatment_Type, t.Treatment_Status, t.Treatment_Date
+        INTO v_animal_name, v_animal_id, v_treatment_type, v_treatment_status, v_treatment_date
+        FROM Treatment t
+        JOIN Animal a ON t.Animal_ID = a.Animal_ID
+        WHERE t.Treatment_ID = v_treatment_id;
+
+        -- Step 7: Display the updated details in a larger table format
+        DBMS_OUTPUT.PUT_LINE('=============================================================');
+        DBMS_OUTPUT.PUT_LINE('| Field            | Value                                  |');
+        DBMS_OUTPUT.PUT_LINE('=============================================================');
+        DBMS_OUTPUT.PUT_LINE('| Animal Name      | ' || RPAD(v_animal_name, 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Animal ID        | ' || RPAD(v_animal_id, 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Treatment ID     | ' || RPAD(v_treatment_id, 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Treatment Type   | ' || RPAD(v_treatment_type, 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Treatment Status | ' || RPAD(v_treatment_status, 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('| Treatment Date   | ' || RPAD(TO_CHAR(v_treatment_date, 'DD-MON-YYYY'), 39) || '|');
+        DBMS_OUTPUT.PUT_LINE('=============================================================');
+      EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+          DBMS_OUTPUT.PUT_LINE('Error: No treatment found for Treatment ID: ' || v_treatment_id);
+      END;
+    END IF;
+  END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

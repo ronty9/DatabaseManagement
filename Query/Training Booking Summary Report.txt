@@ -1,0 +1,129 @@
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Step 1: Display all available training services
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=============================================================');
+    DBMS_OUTPUT.PUT_LINE('|            AVAILABLE TRAINING SERVICES                    |');
+    DBMS_OUTPUT.PUT_LINE('=============================================================');
+    DBMS_OUTPUT.PUT_LINE('|   Training Type                                           |');
+    DBMS_OUTPUT.PUT_LINE('|-----------------------------------------------------------|');
+    DBMS_OUTPUT.PUT_LINE('|   1. Trick Training                                       |');
+    DBMS_OUTPUT.PUT_LINE('|   2. Muzzle Training                                      |');
+    DBMS_OUTPUT.PUT_LINE('|   3. Sibling Training                                     |');
+    DBMS_OUTPUT.PUT_LINE('|   4. Travel Training                                      |');
+    DBMS_OUTPUT.PUT_LINE('|   5. Hydrotherapy Training                                |');
+    DBMS_OUTPUT.PUT_LINE('|   6. Potty Training                                       |');
+    DBMS_OUTPUT.PUT_LINE('|   7. Obedience Training                                   |');
+    DBMS_OUTPUT.PUT_LINE('|   8. Protection Training                                  |');
+    DBMS_OUTPUT.PUT_LINE('|   9. Socialization Training                               |');
+    DBMS_OUTPUT.PUT_LINE('|   10. Agility Training                                    |');
+    DBMS_OUTPUT.PUT_LINE('=============================================================');
+END;
+/
+
+-- Step 2: Accept user input (multiple training types, case insensitive)
+ACCEPT training_types PROMPT 'Select the training types: '
+
+-- Step 3: Validate user input for training types
+DECLARE
+    v_training_types VARCHAR2(1000) := UPPER('&training_types');
+    v_individual_type VARCHAR2(100);
+    v_start_pos NUMBER := 1;
+    v_total_bookings NUMBER;
+    v_invalid BOOLEAN := FALSE;  -- Variable to track if an invalid training type is found
+BEGIN
+    -- Loop through each individual training type from the user input
+    LOOP
+        -- Extract the next training type from the comma-separated input
+        v_individual_type := REGEXP_SUBSTR(v_training_types, '[^,]+', 1, v_start_pos);
+
+        -- Exit the loop if there are no more training types
+        EXIT WHEN v_individual_type IS NULL;
+
+        -- Trim the extracted training type to remove any leading/trailing spaces
+        v_individual_type := TRIM(v_individual_type);
+
+        -- Check if the training type exists in the TrainingService table
+        SELECT COUNT(*)
+        INTO v_total_bookings
+        FROM TrainingService ts
+        WHERE UPPER(ts.Training_Type) = v_individual_type;
+
+        IF v_total_bookings = 0 THEN
+            -- Display error message immediately for invalid training type
+            DBMS_OUTPUT.PUT_LINE('Error: The entered training type "' || v_individual_type || '" does not exist. Please check the training type and try again.');
+            
+            -- Set the flag for invalid input and terminate the program flow
+            v_invalid := TRUE;
+            EXIT;
+        END IF;
+
+        -- Move to the next training type in the user input
+        v_start_pos := v_start_pos + 1;
+    END LOOP;
+
+    -- If invalid type was found, stop further execution
+    IF v_invalid THEN
+        RETURN;  -- Exit the block to prevent further execution
+    END IF;
+
+    -- Step 4: If all training types are valid, display booking summary
+    DBMS_OUTPUT.PUT_LINE('==========================================================');
+    DBMS_OUTPUT.PUT_LINE('|            TRAINING BOOKING SUMMARY REPORT             |');
+    DBMS_OUTPUT.PUT_LINE('==========================================================');
+    DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('|   Training Type              | Total Bookings          |');
+    DBMS_OUTPUT.PUT_LINE('|------------------------------|-------------------------|');
+
+    -- Reset the variables to loop through the input again
+    v_start_pos := 1;  -- Reset position to loop through the valid input
+    LOOP
+        -- Extract the next training type from the comma-separated input
+        v_individual_type := REGEXP_SUBSTR(v_training_types, '[^,]+', 1, v_start_pos);
+
+        -- Exit the loop if there are no more training types
+        EXIT WHEN v_individual_type IS NULL;
+
+        -- Trim the extracted training type to remove any leading/trailing spaces
+        v_individual_type := TRIM(v_individual_type);
+
+        -- Query the total bookings for the current valid training type
+        SELECT COUNT(b.Booking_ID) INTO v_total_bookings
+        FROM Booking b
+        JOIN TrainingService ts ON b.TrainingService_ID = ts.TrainingService_ID
+        WHERE UPPER(ts.Training_Type) = v_individual_type;
+
+        -- Display the result for the current training type
+        DBMS_OUTPUT.PUT_LINE('| ' || RPAD(v_individual_type, 28) || ' | ' || 
+                              CENTER_TEXT(v_total_bookings, 23) || ' |');
+
+        -- Move to the next training type in the user input
+        v_start_pos := v_start_pos + 1;
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------');
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;

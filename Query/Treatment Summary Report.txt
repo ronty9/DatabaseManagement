@@ -1,0 +1,99 @@
+-- Clear Screen
+CLEAR SCREEN;
+
+-- Enable server output
+SET SERVEROUTPUT ON;
+
+-- Set display format
+SET LINESIZE 350;
+SET PAGESIZE 50000;
+SET VERIFY OFF;
+SET FEEDBACK OFF;
+
+-- Function to center-align text within a given width
+CREATE OR REPLACE FUNCTION CENTER_TEXT(p_text IN VARCHAR2, p_width IN NUMBER) RETURN VARCHAR2 IS
+    l_padding NUMBER;
+BEGIN
+    l_padding := (p_width - LENGTH(p_text)) / 2;
+    RETURN LPAD(p_text, LENGTH(p_text) + FLOOR(l_padding)) || RPAD(' ', CEIL(l_padding));
+END;
+/
+
+-- Display available pet sources
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('========================================================');
+    DBMS_OUTPUT.PUT_LINE('|             AVAILABLE PET SOURCES                    |');
+    DBMS_OUTPUT.PUT_LINE('========================================================');
+    DBMS_OUTPUT.PUT_LINE('| 1. Neglected                                         |');
+    DBMS_OUTPUT.PUT_LINE('| 2. Abused                                            |');
+    DBMS_OUTPUT.PUT_LINE('| 3. Homeless                                          |');
+    DBMS_OUTPUT.PUT_LINE('| 4. Lost                                              |');
+    DBMS_OUTPUT.PUT_LINE('========================================================');
+    DBMS_OUTPUT.PUT_LINE(' ');  -- Blank line for better readability
+END;
+/
+
+-- Accept input from the user
+ACCEPT v_pet_source PROMPT 'Select the Pet Source from the list above: ';
+
+-- PL/SQL block for validation and output
+DECLARE
+    v_clean_pet_source VARCHAR2(50);
+    v_valid_source BOOLEAN := FALSE;
+BEGIN
+    -- Convert user input to lowercase for validation
+    v_clean_pet_source := LOWER('&v_pet_source');
+
+    -- Validate the user input
+    IF v_clean_pet_source IN ('neglected', 'abused', 'homeless', 'lost') THEN
+        v_valid_source := TRUE;
+    ELSE
+        v_valid_source := FALSE;
+    END IF;
+
+    -- If valid, execute the report; if not, display an error message
+    IF v_valid_source THEN
+        DBMS_OUTPUT.PUT_LINE('========================================================================');
+        DBMS_OUTPUT.PUT_LINE('|                       TREATMENT SUMMARY REPORT                       |');
+        DBMS_OUTPUT.PUT_LINE('========================================================================');
+        DBMS_OUTPUT.PUT_LINE(' ');  -- Prints an empty line
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('| Pet Source           | Treatment Type        |   Treatment Count     |');
+        DBMS_OUTPUT.PUT_LINE('|----------------------|-----------------------|-----------------------|');
+
+        FOR r IN (
+            SELECT 
+                ani.Pet_Source AS PetSource_Name, 
+                t.Treatment_Type, 
+                COUNT(t.Treatment_ID) AS Treatment_Count 
+            FROM 
+                Animal ani 
+            LEFT JOIN 
+                Treatment t ON ani.Animal_ID = t.Animal_ID 
+            WHERE 
+                LOWER(ani.Pet_Source) = v_clean_pet_source -- Using bind variable
+                AND t.Treatment_Type NOT IN ('Vaccination', 'Neuter / Spay') -- Exclude specific treatments
+            GROUP BY 
+                ani.Pet_Source, 
+                t.Treatment_Type 
+            ORDER BY 
+                ani.Pet_Source, 
+                t.Treatment_Type
+        ) LOOP
+            -- Left-align Pet Source and Treatment Type, center-align Treatment Count
+            DBMS_OUTPUT.PUT_LINE('| ' || RPAD(r.PetSource_Name, 20) || ' | ' || 
+                                  RPAD(r.Treatment_Type, 21) || ' | ' || 
+                                  CENTER_TEXT(r.Treatment_Count, 21) || ' |');
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------------------------------------');
+    ELSE
+        -- If invalid input, print an error message
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid Pet Source. Please enter one of the following: Neglected, Abused, Homeless, Lost.');
+    END IF;
+END;
+/
+
+-- Reset to default settings
+SET FEEDBACK ON;
+SET VERIFY ON;
